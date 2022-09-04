@@ -48,22 +48,22 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ENetRole LocalNetRole = GetLocalRole();
-	switch (LocalNetRole)
-	{
-	case ENetRole::ROLE_Authority:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("AWeapon::BeginPlay"));
-		break;
-	case ENetRole::ROLE_AutonomousProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("AWeapon::BeginPlay"));
-		break;
-	case ENetRole::ROLE_SimulatedProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("AWeapon::BeginPlay"));
-		break;
-	case ENetRole::ROLE_None:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("AWeapon::BeginPlay"));
-		break;
-	}
+	// ENetRole LocalNetRole = GetLocalRole();
+	// switch (LocalNetRole)
+	// {
+	// case ENetRole::ROLE_Authority:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("AWeapon::BeginPlay"));
+	// 	break;
+	// case ENetRole::ROLE_AutonomousProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("AWeapon::BeginPlay"));
+	// 	break;
+	// case ENetRole::ROLE_SimulatedProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("AWeapon::BeginPlay"));
+	// 	break;
+	// case ENetRole::ROLE_None:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("AWeapon::BeginPlay"));
+	// 	break;
+	// }
 	if (HasAuthority())
 	{
 		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);

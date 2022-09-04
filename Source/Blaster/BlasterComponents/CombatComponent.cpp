@@ -22,6 +22,7 @@ void UCombatComponent::BeginPlay()
 
 	if (Character)
 	{
+		// 设置移动最大速度
 		Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
 	}
 }
@@ -30,13 +31,20 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 {
 	bAiming = bIsAiming; //服务器执行会有延迟，所以客户端先模拟，然后服务器再覆盖，不会有延迟感觉
 	ServerSetAiming(bIsAiming);
+	if (Character)
+	{
+		// 设置移动最大速度
+		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()
 {
 	if (EquippedWeapon && Character)
 	{
+		// 设置不随运动自动转向
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+		// 设置使用控制器旋转偏置控制角色转向
 		Character->bUseControllerRotationYaw = true;
 	}
 }
@@ -44,6 +52,11 @@ void UCombatComponent::OnRep_EquippedWeapon()
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 {
 	bAiming = bIsAiming;
+	if (Character)
+	{
+		// 设置服务端移动最大速度
+		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
 }
 
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -92,7 +105,10 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	}
 	//EquippedWeapon->ShowPickupWidget(false);
 	//EquippedWeapon->GetAreaSphere()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	// 设置不随运动自动转向
 	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+	// 设置使用控制器旋转偏置控制角色转向
 	Character->bUseControllerRotationYaw = true;
 }
 

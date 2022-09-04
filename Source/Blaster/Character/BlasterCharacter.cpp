@@ -6,9 +6,11 @@
 #include "Blaster/BlasterComponents/CombatComponent.h"
 #include "Blaster/Weapon/Weapon.h"
 #include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -19,13 +21,17 @@ ABlasterCharacter::ABlasterCharacter()
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(GetMesh());
 	CameraBoom->TargetArmLength = 600.f;
+	// 是否使Pawn控制旋转
 	CameraBoom->bUsePawnControlRotation = true;
 
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	// 是否使Pawn控制旋转
 	FollowCamera->bUsePawnControlRotation = false;
 
+	// 是否使用控制器旋转偏置控制角色转向
 	bUseControllerRotationYaw = false;
+	// 是否随运动自动转向
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
 	OverHeadWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("OverHeadWidget"));
@@ -33,6 +39,17 @@ ABlasterCharacter::ABlasterCharacter()
 	
 	CombatComponent = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	CombatComponent->SetIsReplicated(true);
+
+	// 是否能下蹲，蓝图默认true
+	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
+
+	// 忽略胶囊体和摄像机碰撞，避免两个角色靠近时镜头缩放
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	// 忽略网格体和摄像机碰撞，避免两个角色靠近时镜头缩放
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
+	// 默认不播放原地转身动画
+	TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
 	
 }
 
@@ -58,27 +75,30 @@ void ABlasterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ENetRole LocalNetRole = GetLocalRole();
-	switch (LocalNetRole)
-	{
-	case ENetRole::ROLE_Authority:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("ABlasterCharacter::BeginPlay"));
-		break;
-	case ENetRole::ROLE_AutonomousProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("ABlasterCharacter::BeginPlay"));
-		break;
-	case ENetRole::ROLE_SimulatedProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("ABlasterCharacter::BeginPlay"));
-		break;
-	case ENetRole::ROLE_None:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("ABlasterCharacter::BeginPlay"));
-		break;
-	}
+	// ENetRole LocalNetRole = GetLocalRole();
+	// switch (LocalNetRole)
+	// {
+	// case ENetRole::ROLE_Authority:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("ABlasterCharacter::BeginPlay"));
+	// 	break;
+	// case ENetRole::ROLE_AutonomousProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("ABlasterCharacter::BeginPlay"));
+	// 	break;
+	// case ENetRole::ROLE_SimulatedProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("ABlasterCharacter::BeginPlay"));
+	// 	break;
+	// case ENetRole::ROLE_None:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("ABlasterCharacter::BeginPlay"));
+	// 	break;
+	// }
 }
 
 void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// 每帧计算aim offset
+	AimOffset(DeltaTime);
 }
 
 void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -186,6 +206,65 @@ void ABlasterCharacter::AimButtonReleased()
 	}
 }
 
+void ABlasterCharacter::AimOffset(float DeltaTime)
+{
+	// 如果没有装备武器，则不用计算瞄准偏移量直接返回
+	if (!IsEquippedWeapon())
+	{
+		return;
+	}
+
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	const float Speed = Velocity.Size();
+	const bool bIsInAir = GetCharacterMovement()->IsFalling();
+	
+	// 只有在不移动，不跳起的时候才计算瞄准偏移量
+	if (Speed == 0.f && !bIsInAir)
+	{
+		const FRotator CurrentAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		const FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
+		AO_Yaw = DeltaAimRotation.Yaw;
+		// 不使用控制器旋转偏置控制角色转向
+		bUseControllerRotationYaw = false;
+		// 原地转动
+		TurningInSpace(DeltaTime);
+	}
+	// 移动或跳起不计算瞄准偏移量
+	if (Speed > 0.f || bIsInAir)
+	{
+		StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		AO_Yaw = 0.f;
+		bUseControllerRotationYaw = true;
+		// 取消原地转动动画
+		TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
+	}
+	// 计算瞄准俯仰量
+	AO_Pitch = GetBaseAimRotation().Pitch;
+	if(AO_Pitch > 90.f && !IsLocallyControlled())
+	{
+		// 将俯仰量[270,360)映射到[-90,0)
+		const FVector2D InRange(270.f, 360.f);
+		const FVector2D OutRange(-90.f, 0.f);
+		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
+
+void ABlasterCharacter::TurningInSpace(float DeltaTime)
+{
+	//UE_LOG(LogTemp, Warning, TEXT("AO_Yaw: %f"), AO_Yaw);
+	if (AO_Yaw > 90.f)
+	{
+		// 执行原地右转动画
+		TurningInSpaceState = ETurningInSpaceState::ETIS_Right;
+	}
+	else if (AO_Yaw < -90.f)
+	{
+		// 执行原地左转动画
+		TurningInSpaceState = ETurningInSpaceState::ETIS_Left;
+	}
+}
+
 void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 {
 	ENetRole LocalNetRole = GetLocalRole();
@@ -245,5 +324,14 @@ bool ABlasterCharacter::IsEquippedWeapon()
 bool ABlasterCharacter::IsAiming()
 {
 	return CombatComponent && CombatComponent->bAiming;
+}
+
+AWeapon* ABlasterCharacter::GetEquippedWeapon()
+{
+	if (CombatComponent == nullptr)
+	{
+		return nullptr;
+	}
+	return CombatComponent->EquippedWeapon;
 }
 
