@@ -47,9 +47,16 @@ ABlasterCharacter::ABlasterCharacter()
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	// 忽略网格体和摄像机碰撞，避免两个角色靠近时镜头缩放
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	
+	// 调整转身速度，防止移动一段距离以后才完成转身
+	GetCharacterMovement()->RotationRate = FRotator(0.f,0.f, 800.f);
 
 	// 默认不播放原地转身动画
 	TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
+
+	// 网络刷新频率
+	NetUpdateFrequency = 66.f;
+	MinNetUpdateFrequency = 33.f;
 	
 }
 
@@ -151,22 +158,22 @@ void ABlasterCharacter::LookUp(float Value)
 
 void ABlasterCharacter::EquipButtonPressed()
 {
-	ENetRole LocalNetRole = GetLocalRole();
-	switch (LocalNetRole)
-	{
-	case ENetRole::ROLE_Authority:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("ABlasterCharacter::EquipButtonPressed"));
-		break;
-	case ENetRole::ROLE_AutonomousProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("ABlasterCharacter::EquipButtonPressed"));
-		break;
-	case ENetRole::ROLE_SimulatedProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("ABlasterCharacter::EquipButtonPressed"));
-		break;
-	case ENetRole::ROLE_None:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("ABlasterCharacter::EquipButtonPressed"));
-		break;
-	}
+	// ENetRole LocalNetRole = GetLocalRole();
+	// switch (LocalNetRole)
+	// {
+	// case ENetRole::ROLE_Authority:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("ABlasterCharacter::EquipButtonPressed"));
+	// 	break;
+	// case ENetRole::ROLE_AutonomousProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("ABlasterCharacter::EquipButtonPressed"));
+	// 	break;
+	// case ENetRole::ROLE_SimulatedProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("ABlasterCharacter::EquipButtonPressed"));
+	// 	break;
+	// case ENetRole::ROLE_None:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("ABlasterCharacter::EquipButtonPressed"));
+	// 	break;
+	// }
 	if (CombatComponent && OverlappingWeapon)
 	{
 		if (HasAuthority())
@@ -225,8 +232,13 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 		const FRotator CurrentAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		const FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
 		AO_Yaw = DeltaAimRotation.Yaw;
-		// 不使用控制器旋转偏置控制角色转向
-		bUseControllerRotationYaw = false;
+		// 如果不需要转动的时候，InterpAO_Yaw简单的等于AO_Yaw即可
+		if (TurningInSpaceState == ETurningInSpaceState::ETIS_NotTurning)
+		{
+			InterpAO_Yaw = AO_Yaw;
+		}
+		// 使用控制器旋转偏置控制角色转向
+		bUseControllerRotationYaw = true;
 		// 原地转动
 		TurningInSpace(DeltaTime);
 	}
@@ -250,6 +262,16 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 	}
 }
 
+void ABlasterCharacter::Jump()
+{
+	if (bIsCrouched)
+	{
+		UnCrouch();
+		return;
+	}
+	Super::Jump();
+}
+
 void ABlasterCharacter::TurningInSpace(float DeltaTime)
 {
 	//UE_LOG(LogTemp, Warning, TEXT("AO_Yaw: %f"), AO_Yaw);
@@ -263,26 +285,38 @@ void ABlasterCharacter::TurningInSpace(float DeltaTime)
 		// 执行原地左转动画
 		TurningInSpaceState = ETurningInSpaceState::ETIS_Left;
 	}
+	// 如果需要转动动画的时候，将InterpAO_Yaw通过插值的方式归零
+	if (TurningInSpaceState != ETurningInSpaceState::ETIS_NotTurning)
+	{
+		InterpAO_Yaw = FMath::FInterpTo(InterpAO_Yaw, 0.f, DeltaTime, 4.f);
+		//UE_LOG(LogTemp, Warning, TEXT("InterpAO_Yaw: %f"), InterpAO_Yaw);
+		AO_Yaw = InterpAO_Yaw;
+		if (FMath::Abs(AO_Yaw) < 15.f)
+		{
+			TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
+			StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		}
+	}
 }
 
 void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 {
-	ENetRole LocalNetRole = GetLocalRole();
-	switch (LocalNetRole)
-	{
-	case ENetRole::ROLE_Authority:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
-		break;
-	case ENetRole::ROLE_AutonomousProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
-		break;
-	case ENetRole::ROLE_SimulatedProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
-		break;
-	case ENetRole::ROLE_None:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
-		break;
-	}
+	// ENetRole LocalNetRole = GetLocalRole();
+	// switch (LocalNetRole)
+	// {
+	// case ENetRole::ROLE_Authority:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
+	// 	break;
+	// case ENetRole::ROLE_AutonomousProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
+	// 	break;
+	// case ENetRole::ROLE_SimulatedProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
+	// 	break;
+	// case ENetRole::ROLE_None:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("ABlasterCharacter::ServerEquipButtonPressed_Implementation"));
+	// 	break;
+	// }
 	if (CombatComponent)
 	{
 		CombatComponent->EquipWeapon(OverlappingWeapon);

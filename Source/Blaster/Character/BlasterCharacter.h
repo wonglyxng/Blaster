@@ -34,6 +34,8 @@ protected:
 
 	void AimOffset(float DeltaTime);
 
+	virtual void Jump() override;
+
 
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
@@ -51,12 +53,14 @@ private:
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	class UCombatComponent* CombatComponent;
 
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 
 	float AO_Yaw;
+	float InterpAO_Yaw;
 	float AO_Pitch;
 	FRotator StartingAimRotation;
 
