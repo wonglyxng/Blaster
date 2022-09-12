@@ -85,11 +85,15 @@ void ABlasterCharacter::PlayFireMontage(bool bAiming)
 		return;
 	}
 
+	// 获取当前动画实例，通过动画实例播放蒙太奇
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && FireWeaponMontage)
 	{
+		// 播放蒙太奇
 		AnimInstance->Montage_Play(FireWeaponMontage);
+		// 获取蒙太奇指定段名称
 		const FName SectionName = bAiming ? FName(TEXT("RifleAim")) : FName(TEXT("RifleHip"));
+		// 跳到指定段
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
