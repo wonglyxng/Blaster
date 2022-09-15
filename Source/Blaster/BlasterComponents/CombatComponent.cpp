@@ -52,9 +52,16 @@ void UCombatComponent::OnRep_EquippedWeapon()
 void UCombatComponent::FireButtonPressed(bool bPressed)
 {
 	bFireButtonPressed = bPressed;
+	if (EquippedWeapon == nullptr)
+	{
+		return;
+	}
 	if (Character && bFireButtonPressed)
 	{
+		// 播放射击蒙太奇
 		Character->PlayFireMontage(bAiming);
+		// 调用武器射击接口
+		EquippedWeapon->Fire();
 	}
 }
 

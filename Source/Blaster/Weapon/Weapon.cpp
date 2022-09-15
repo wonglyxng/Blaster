@@ -128,3 +128,13 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 		PickupWidget->SetVisibility(bShowWidget);
 	}
 }
+
+void AWeapon::Fire()
+{
+	// 通过WeaponMesh播放武器射击动画
+	if (FireAnimation && WeaponMesh)
+	{
+		// 循环播放参数设置为false
+		WeaponMesh->PlayAnimation(FireAnimation, false);
+	}
+}
