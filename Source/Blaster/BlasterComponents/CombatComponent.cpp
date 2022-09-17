@@ -52,11 +52,21 @@ void UCombatComponent::OnRep_EquippedWeapon()
 void UCombatComponent::FireButtonPressed(bool bPressed)
 {
 	bFireButtonPressed = bPressed;
-	if (EquippedWeapon == nullptr)
+	if (bFireButtonPressed)
 	{
-		return;
+		ServerFire();
 	}
-	if (Character && bFireButtonPressed)
+}
+
+void UCombatComponent::ServerFire_Implementation()
+{
+	MulticastFire();
+}
+
+void UCombatComponent::MulticastFire_Implementation()
+{
+	if (EquippedWeapon == nullptr) return;
+	if (Character)
 	{
 		// 播放射击蒙太奇
 		Character->PlayFireMontage(bAiming);
@@ -90,22 +100,22 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
-	ENetRole LocalNetRole = WeaponToEquip->GetLocalRole();
-	switch (LocalNetRole)
-	{
-	case ENetRole::ROLE_Authority:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("UCombatComponent::EquipWeapon"));
-		break;
-	case ENetRole::ROLE_AutonomousProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("UCombatComponent::EquipWeapon"));
-		break;
-	case ENetRole::ROLE_SimulatedProxy:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("UCombatComponent::EquipWeapon"));
-		break;
-	case ENetRole::ROLE_None:
-		GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("UCombatComponent::EquipWeapon"));
-		break;
-	}
+	// ENetRole LocalNetRole = WeaponToEquip->GetLocalRole();
+	// switch (LocalNetRole)
+	// {
+	// case ENetRole::ROLE_Authority:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("UCombatComponent::EquipWeapon"));
+	// 	break;
+	// case ENetRole::ROLE_AutonomousProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("UCombatComponent::EquipWeapon"));
+	// 	break;
+	// case ENetRole::ROLE_SimulatedProxy:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("UCombatComponent::EquipWeapon"));
+	// 	break;
+	// case ENetRole::ROLE_None:
+	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("UCombatComponent::EquipWeapon"));
+	// 	break;
+	// }
 	if (Character == nullptr || WeaponToEquip == nullptr)
 	{
 		return;
