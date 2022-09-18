@@ -108,9 +108,11 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 		if (!TraceHitResult.bBlockingHit)
 		{
 			TraceHitResult.ImpactPoint = End;
+			HitTarget = End;
 		}
 		else
 		{
+			HitTarget = TraceHitResult.ImpactPoint;
 			DrawDebugSphere(GetWorld(),TraceHitResult.ImpactPoint,12.f,12,FColor::Red);
 		}
 	}
@@ -129,7 +131,7 @@ void UCombatComponent::MulticastFire_Implementation()
 		// 播放射击蒙太奇
 		Character->PlayFireMontage(bAiming);
 		// 调用武器射击接口
-		EquippedWeapon->Fire();
+		EquippedWeapon->Fire(HitTarget);
 	}
 }
 

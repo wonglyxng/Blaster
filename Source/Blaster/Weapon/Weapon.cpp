@@ -129,7 +129,7 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 	}
 }
 
-void AWeapon::Fire()
+void AWeapon::Fire(const FVector& HitTarget)
 {
 	// 通过WeaponMesh播放武器射击动画
 	if (FireAnimation && WeaponMesh)
