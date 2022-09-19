@@ -8,7 +8,15 @@
 
 void AProjectileWeapon::Fire(const FVector& HitTarget)
 {
+	// 所有端都播放射击动画
 	Super::Fire(HitTarget);
+
+	// 只在服务端执行下面代码生成子弹
+	if (!HasAuthority())
+	{
+		// 非服务器则直接返回
+		return;
+	}
 
 	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
 	if (MuzzleFlashSocket)
