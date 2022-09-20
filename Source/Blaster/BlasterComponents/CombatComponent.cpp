@@ -31,9 +31,6 @@ void UCombatComponent::BeginPlay()
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	FHitResult TraceHitResult;
-	TraceUnderCrossHairs(TraceHitResult);
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -71,7 +68,9 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	bFireButtonPressed = bPressed;
 	if (bFireButtonPressed)
 	{
-		ServerFire();
+		FHitResult TraceHitResult;
+		TraceUnderCrossHairs(TraceHitResult);
+		ServerFire(TraceHitResult.ImpactPoint);
 	}
 }
 
@@ -104,26 +103,20 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 		const FVector End = Start + CrossHairWorldDirection * TRACE_LENGTH;
 
 		// 射线检测，命中一个可见对象即返回碰撞信息
-		GetWorld()->LineTraceSingleByChannel(TraceHitResult,Start,End,ECollisionChannel::ECC_Visibility);
+		GetWorld()->LineTraceSingleByChannel(TraceHitResult, Start, End, ECollisionChannel::ECC_Visibility);
 		if (!TraceHitResult.bBlockingHit)
 		{
 			TraceHitResult.ImpactPoint = End;
-			HitTarget = End;
-		}
-		else
-		{
-			HitTarget = TraceHitResult.ImpactPoint;
-			DrawDebugSphere(GetWorld(),TraceHitResult.ImpactPoint,12.f,12,FColor::Red);
 		}
 	}
 }
 
-void UCombatComponent::ServerFire_Implementation()
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitResult)
 {
-	MulticastFire();
+	MulticastFire(TraceHitResult);
 }
 
-void UCombatComponent::MulticastFire_Implementation()
+void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitResult)
 {
 	if (EquippedWeapon == nullptr) return;
 	if (Character)
@@ -131,7 +124,7 @@ void UCombatComponent::MulticastFire_Implementation()
 		// 播放射击蒙太奇
 		Character->PlayFireMontage(bAiming);
 		// 调用武器射击接口
-		EquippedWeapon->Fire(HitTarget);
+		EquippedWeapon->Fire(TraceHitResult);
 	}
 }
 
@@ -147,22 +140,6 @@ void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
-	// ENetRole LocalNetRole = WeaponToEquip->GetLocalRole();
-	// switch (LocalNetRole)
-	// {
-	// case ENetRole::ROLE_Authority:
-	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("UCombatComponent::EquipWeapon"));
-	// 	break;
-	// case ENetRole::ROLE_AutonomousProxy:
-	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Green, TEXT("UCombatComponent::EquipWeapon"));
-	// 	break;
-	// case ENetRole::ROLE_SimulatedProxy:
-	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Yellow, TEXT("UCombatComponent::EquipWeapon"));
-	// 	break;
-	// case ENetRole::ROLE_None:
-	// 	GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Blue, TEXT("UCombatComponent::EquipWeapon"));
-	// 	break;
-	// }
 	if (Character == nullptr || WeaponToEquip == nullptr)
 	{
 		return;
