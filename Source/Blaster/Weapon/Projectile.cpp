@@ -6,6 +6,7 @@
 #include "Components/BoxComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 
 AProjectile::AProjectile()
 {
@@ -45,6 +46,12 @@ void AProjectile::BeginPlay()
 			);
 	}
 	
+	if (HasAuthority() && CollisionBox)
+	{
+		// 只在服务端响应撞击事件
+		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectile::OnHit);
+	}
+	
 }
 
 void AProjectile::Tick(float DeltaTime)
@@ -53,3 +60,24 @@ void AProjectile::Tick(float DeltaTime)
 
 }
 
+void AProjectile::Destroyed()
+{
+	Super::Destroyed();
+
+	// 播放撞击粒子特效
+	if (ImpactParticle)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticle, GetActorTransform());
+	}
+	// 播放撞击音效
+	if (ImpactSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation());
+	}
+}
+
+void AProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	// 调用销毁函数，当子弹被销毁以后会调用我们重写的Destroyed()函数
+	Destroy();
+}
