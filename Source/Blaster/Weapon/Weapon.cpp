@@ -3,10 +3,12 @@
 
 #include "Weapon.h"
 
+#include "Casing.h"
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 AWeapon::AWeapon()
 {
@@ -16,7 +18,7 @@ AWeapon::AWeapon()
 
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMesh);
-	
+
 	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -25,16 +27,14 @@ AWeapon::AWeapon()
 	AreaSphere->SetupAttachment(WeaponMesh);
 	AreaSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	
+
 	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickupWidget"));
 	PickupWidget->SetupAttachment(WeaponMesh);
-
 }
 
 void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -78,7 +78,8 @@ void AWeapon::BeginPlay()
 }
 
 void AWeapon::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+                                   UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+                                   const FHitResult& SweepResult)
 {
 	//GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("AWeapon::OnSphereBeginOverlap"));
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
@@ -89,7 +90,7 @@ void AWeapon::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AAc
 }
 
 void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+                                 UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	//GEngine->AddOnScreenDebugMessage(-1, 60.f, FColor::Red, TEXT("AWeapon::OnSphereEndOverlap"));
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
@@ -136,5 +137,26 @@ void AWeapon::Fire(const FVector& HitTarget)
 	{
 		// 循环播放参数设置为false
 		WeaponMesh->PlayAnimation(FireAnimation, false);
+
+		// 弹出子弹壳
+		if (CasingClass)
+		{
+			// 获取AmmoEject插槽对象
+			const USkeletalMeshSocket* AmmoEjectSocket = WeaponMesh->GetSocketByName(FName("AmmoEject"));
+			if (AmmoEjectSocket)
+			{
+				// 获取弹壳插槽位置的转换，即在这个位置生成弹壳
+				FTransform SocketTransform = AmmoEjectSocket->GetSocketTransform(WeaponMesh);
+				UWorld* World = GetWorld();
+				if (World)
+				{
+					World->SpawnActor<ACasing>(
+						CasingClass, // 生成的弹壳类
+						SocketTransform.GetLocation(), // 生成弹壳位置
+						SocketTransform.GetRotation().Rotator() // 生成弹壳的旋转
+					);
+				}
+			}
+		}
 	}
 }
