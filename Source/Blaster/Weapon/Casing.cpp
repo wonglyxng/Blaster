@@ -3,6 +3,7 @@
 
 #include "Casing.h"
 #include "kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Sound/SoundCue.h"
 
 ACasing::ACasing()
@@ -14,6 +15,7 @@ ACasing::ACasing()
 	
 	// 忽略摄像机碰撞
 	CasingMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	CasingMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	// 开启物理模拟
 	CasingMesh->SetSimulatePhysics(true);
 	// 开启重力加速度
@@ -21,7 +23,7 @@ ACasing::ACasing()
 	// 开启生成 hit event，否则不会触发碰撞事件
 	CasingMesh->SetNotifyRigidBodyCollision(true);
 
-	ShellEjectionImpulse = 5.f;
+	ShellEjectionImpulse = 10.f;
 
 }
 
@@ -30,8 +32,17 @@ void ACasing::BeginPlay()
 	Super::BeginPlay();
 	// 注册碰撞事件
 	CasingMesh->OnComponentHit.AddDynamic(this, &ACasing::OnHit);
+
+	// 计算随机方向
+	const FRotator ShellRotator = GetActorRotation();
+	SetActorRotation(FRotator(
+		ShellRotator.Pitch + FMath::RandRange(-30., 30.),
+		ShellRotator.Yaw + FMath::RandRange(-30., 30.),
+		ShellRotator.Roll));
+	const FVector ForwardVector = GetActorForwardVector();
+	//UE_LOG(LogTemp, Warning, TEXT("ForwardVector.X: %f, ForwardVector.Y: %f, ForwardVector.Z: %f"), ForwardVector.X, ForwardVector.Y, ForwardVector.Z);
 	// 给弹壳添加一个脉冲
-	CasingMesh->AddImpulse(GetActorForwardVector() * ShellEjectionImpulse);
+	CasingMesh->AddImpulse(ForwardVector * ShellEjectionImpulse);
 	
 }
 
