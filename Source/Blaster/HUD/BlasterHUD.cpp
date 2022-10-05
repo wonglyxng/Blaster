@@ -13,40 +13,51 @@ void ABlasterHUD::DrawHUD()
 		GEngine->GameViewport->GetViewportSize(ViewportSize);
 		// 取屏幕中心
 		FVector2D ViewportCenter(ViewportSize.X / 2.f, ViewportSize.Y / 2.f);
+
+		float SpreadScaled = CrosshairSpreadMax * HudPackage.CrosshairSpread;
 		
 		// 绘制十字准星中心
 		if (HudPackage.CrosshairsCenter)
 		{
-			DrawCrosshair(HudPackage.CrosshairsCenter, ViewportCenter);
+			FVector2D Spread(0.f, 0.f);
+			DrawCrosshair(HudPackage.CrosshairsCenter, ViewportCenter, Spread);
 		}
 		// 绘制十字准星左部
 		if (HudPackage.CrosshairsLeft)
 		{
-			DrawCrosshair(HudPackage.CrosshairsLeft, ViewportCenter);
+			FVector2D Spread(-SpreadScaled, 0.f);
+			DrawCrosshair(HudPackage.CrosshairsLeft, ViewportCenter, Spread);
 		}
 		// 绘制十字准星右部
 		if (HudPackage.CrosshairsRight)
 		{
-			DrawCrosshair(HudPackage.CrosshairsRight, ViewportCenter);
+			FVector2D Spread(SpreadScaled, 0.f);
+			DrawCrosshair(HudPackage.CrosshairsRight, ViewportCenter, Spread);
 		}
 		// 绘制十字准星上部
 		if (HudPackage.CrosshairsTop)
 		{
-			DrawCrosshair(HudPackage.CrosshairsTop, ViewportCenter);
+			FVector2D Spread(0.f, -SpreadScaled);
+			DrawCrosshair(HudPackage.CrosshairsTop, ViewportCenter, Spread);
 		}
 		// 绘制十字准星上部
 		if (HudPackage.CrosshairsBottom)
 		{
-			DrawCrosshair(HudPackage.CrosshairsBottom, ViewportCenter);
+			FVector2D Spread(0.f, SpreadScaled);
+			DrawCrosshair(HudPackage.CrosshairsBottom, ViewportCenter, Spread);
 		}
 	}
 }
 
-void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, FVector2D ViewportCenter)
+void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, FVector2D ViewportCenter, FVector2D Spread)
 {
 	const float TextureWidth = Texture->GetSizeX();
 	const float TextureHeight = Texture->GetSizeY();
-	const FVector2D TextureDrawPoint(ViewportCenter.X - TextureWidth / 2.f, ViewportCenter.Y - TextureHeight / 2.f);
+	
+	const FVector2D TextureDrawPoint(
+		ViewportCenter.X - TextureWidth / 2.f + Spread.X,
+		ViewportCenter.Y - TextureHeight / 2.f + Spread.Y
+		);
 
 	DrawTexture(
 		Texture,

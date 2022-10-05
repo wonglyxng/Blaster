@@ -145,6 +145,28 @@ void UCombatComponent::SetHUDCrosshair(float DeltaTime)
 				HUDPackage.CrosshairsTop = nullptr;
 				HUDPackage.CrosshairsBottom = nullptr;
 			}
+
+			// 计算十字准星扩展幅度因子
+			// [0, speed]->[0, 1]
+			FVector2D WalkSpeedRange(0.f, Character->GetCharacterMovement()->MaxWalkSpeed);
+			FVector2D VelocityMultiplierRange(0.f, 1.f);
+			FVector Velocity = Character->GetVelocity();
+			Velocity.Z = 0.f;
+			CrosshairVelocityFactor = FMath::GetMappedRangeValueClamped(WalkSpeedRange, VelocityMultiplierRange, Velocity.Size());
+			
+			if (Character->GetCharacterMovement()->IsFalling())
+			{
+				// 如果在空中，将CrosshairInAirFactor插值到2.25f
+				CrosshairInAirFactor = FMath::FInterpTo(CrosshairInAirFactor, 2.25f, DeltaTime, 2.25f);
+			}
+			else
+			{
+				// 如果在地面，将CrosshairInAirFactor插值到0.f
+				CrosshairInAirFactor = FMath::FInterpTo(CrosshairInAirFactor, 0.f, DeltaTime, 30.f);
+			}
+			
+			HUDPackage.CrosshairSpread = CrosshairVelocityFactor + CrosshairInAirFactor;
+			
 			HUD->SetHUDPackage(HUDPackage);
 		}
 	}
