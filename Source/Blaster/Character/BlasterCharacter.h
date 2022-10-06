@@ -83,5 +83,6 @@ public:
 	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
 	AWeapon* GetEquippedWeapon();
 	FORCEINLINE ETurningInSpaceState GetTurningInSpaceState() const { return TurningInSpaceState; }
+	FVector GetHitTarget() const;
 
 };
