@@ -39,7 +39,9 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	class USoundCue* ImpactSound;
-	
+
+	FTimerHandle DestroyProjectileTimerHandle;
+	void DestroyProjectile();
 
 public:	
 	

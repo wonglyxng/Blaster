@@ -7,6 +7,7 @@
 #include "Blaster/HUD/BlasterHUD.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Blaster/Weapon/Weapon.h"
+#include "Camera/CameraComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -27,20 +28,30 @@ void UCombatComponent::BeginPlay()
 	{
 		// 设置移动最大速度
 		Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
+
+		// 初始化默认FOV和当前FOV
+		if (Character->GetFollowCamera())
+		{
+			DefaultFOV = Character->GetFollowCamera()->FieldOfView;
+			CurrentFOV = DefaultFOV;
+		}
 	}
 }
 
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// 设置十字准星纹理，为啥每一帧都要设置？
-	SetHUDCrosshair(DeltaTime);
+	
 	if (Character && Character->IsLocallyControlled())
 	{
 		FHitResult HitResult;
 		TraceUnderCrossHairs(HitResult);
 		HitTarget = HitResult.ImpactPoint;
+
+		// 设置十字准星纹理，为啥每一帧都要设置？
+		SetHUDCrosshair(DeltaTime);
+		// 插值计算设置相机视野
+		InterpFOV(DeltaTime);
 	}
 }
 
@@ -85,6 +96,33 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	}
 }
 
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitResult)
+{
+	MulticastFire(TraceHitResult);
+}
+
+void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitResult)
+{
+	if (EquippedWeapon == nullptr) return;
+	if (Character)
+	{
+		// 播放射击蒙太奇
+		Character->PlayFireMontage(bAiming);
+		// 调用武器射击接口
+		EquippedWeapon->Fire(TraceHitResult);
+	}
+}
+
+void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
+{
+	bAiming = bIsAiming;
+	if (Character)
+	{
+		// 设置服务端移动最大速度
+		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
+}
+
 void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 {
 	FVector2D ViewportSize;
@@ -114,11 +152,12 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 		const FVector End = Start + CrossHairWorldDirection * TRACE_LENGTH;
 
 		// 射线检测，命中一个可见对象即返回碰撞信息
-		GetWorld()->LineTraceSingleByChannel(TraceHitResult, Start, End, ECollisionChannel::ECC_Visibility);
-		if (!TraceHitResult.bBlockingHit)
-		{
-			TraceHitResult.ImpactPoint = End;
-		}
+		GetWorld()->LineTraceSingleByChannel(
+			TraceHitResult,
+			Start,
+			End,
+			ECollisionChannel::ECC_Visibility
+			);
 	}
 }
 
@@ -178,32 +217,30 @@ void UCombatComponent::SetHUDCrosshair(float DeltaTime)
 	}
 }
 
-void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitResult)
+void UCombatComponent::InterpFOV(float DeltaTime)
 {
-	MulticastFire(TraceHitResult);
-}
-
-void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitResult)
-{
-	if (EquippedWeapon == nullptr) return;
-	if (Character)
+	if (EquippedWeapon == nullptr)
 	{
-		// 播放射击蒙太奇
-		Character->PlayFireMontage(bAiming);
-		// 调用武器射击接口
-		EquippedWeapon->Fire(TraceHitResult);
+		return;
+	}
+	if (bAiming)
+	{
+		// 不同的武器缩放视野范围是不同的，根据不同武器类进行设置
+		CurrentFOV = FMath::FInterpTo(CurrentFOV, EquippedWeapon->GetZoomedFOV(), DeltaTime, EquippedWeapon->GetZoomInterpSpeed());
+	}
+	else
+	{
+		// 所有武器的恢复视野都一样，这个参数设置在战斗组件上
+		CurrentFOV = FMath::FInterpTo(CurrentFOV, DefaultFOV, DeltaTime, ZoomInterpSpeed);
+	}
+
+	if (Character && Character->GetFollowCamera())
+	{
+		// 设置相机视野
+		Character->GetFollowCamera()->SetFieldOfView(CurrentFOV);
 	}
 }
 
-void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
-{
-	bAiming = bIsAiming;
-	if (Character)
-	{
-		// 设置服务端移动最大速度
-		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
-	}
-}
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {

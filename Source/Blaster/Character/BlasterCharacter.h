@@ -84,5 +84,6 @@ public:
 	AWeapon* GetEquippedWeapon();
 	FORCEINLINE ETurningInSpaceState GetTurningInSpaceState() const { return TurningInSpaceState; }
 	FVector GetHitTarget() const;
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
 };

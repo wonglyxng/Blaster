@@ -66,18 +66,18 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		LeftHandTransform.SetLocation(OutPosition);
 		LeftHandTransform.SetRotation(FQuat(OutRotation));
 
-		// if (BlasterCharacter->IsLocallyControlled())
-		// {
-		// 	// 只在本地控制角色进行右手骨骼变换
-		// 	bLocallyControlled = true;
-		// 	
-		// 	// 获取右手骨骼变换
-		// 	FTransform RightHandTransform = EquippedWeaon->GetWeaponMesh()->GetSocketTransform(FName(TEXT("hand_r")), ERelativeTransformSpace::RTS_World);
-		// 	// 计算右手到目标旋转，这里的计算没看懂
-		// 	RightHandRotation = UKismetMathLibrary::FindLookAtRotation(
-		// 		RightHandTransform.GetLocation(),
-		// 		RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - BlasterCharacter->GetHitTarget())
-		// 		);
-		// }
+		if (BlasterCharacter->IsLocallyControlled())
+		{
+			// 只在本地控制角色进行右手骨骼变换
+			bLocallyControlled = true;
+			
+			// 获取右手骨骼变换
+			FTransform RightHandTransform = EquippedWeaon->GetWeaponMesh()->GetSocketTransform(FName(TEXT("hand_r")), ERelativeTransformSpace::RTS_World);
+			// 计算右手到目标旋转，这里的计算没看懂
+			RightHandRotation = UKismetMathLibrary::FindLookAtRotation(
+				RightHandTransform.GetLocation(),
+				RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - BlasterCharacter->GetHitTarget())
+				);
+		}
 	}
 }
