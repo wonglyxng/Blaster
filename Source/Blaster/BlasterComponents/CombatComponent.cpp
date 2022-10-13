@@ -93,6 +93,11 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 		FHitResult TraceHitResult;
 		TraceUnderCrossHairs(TraceHitResult);
 		ServerFire(TraceHitResult.ImpactPoint);
+
+		if (EquippedWeapon)
+		{
+			CrosshairShootingFactor = .75f;
+		}
 	}
 }
 
@@ -209,8 +214,22 @@ void UCombatComponent::SetHUDCrosshair(float DeltaTime)
 				// 如果在地面，将CrosshairInAirFactor插值到0.f
 				CrosshairInAirFactor = FMath::FInterpTo(CrosshairInAirFactor, 0.f, DeltaTime, 30.f);
 			}
+			if (bAiming)
+			{
+				CrosshairAimingFactor = FMath::FInterpTo(CrosshairAimingFactor, 0.58f, DeltaTime, 30.f);
+			}
+			else
+			{
+				CrosshairAimingFactor = FMath::FInterpTo(CrosshairAimingFactor, 0.f, DeltaTime, 30.f);
+			}
+
+			CrosshairShootingFactor = FMath::FInterpTo(CrosshairShootingFactor, 0.f, DeltaTime, 40.f);
 			
-			HUDPackage.CrosshairSpread = CrosshairVelocityFactor + CrosshairInAirFactor;
+			HUDPackage.CrosshairSpread = 0.5f +
+				CrosshairVelocityFactor +
+					CrosshairInAirFactor -
+						CrosshairAimingFactor +
+							CrosshairShootingFactor;
 			
 			HUD->SetHUDPackage(HUDPackage);
 		}
