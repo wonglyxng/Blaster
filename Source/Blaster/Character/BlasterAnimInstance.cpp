@@ -74,10 +74,12 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			// 获取右手骨骼变换
 			FTransform RightHandTransform = EquippedWeaon->GetWeaponMesh()->GetSocketTransform(FName(TEXT("hand_r")), ERelativeTransformSpace::RTS_World);
 			// 计算右手到目标旋转，这里的计算没看懂
-			RightHandRotation = UKismetMathLibrary::FindLookAtRotation(
+			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(
 				RightHandTransform.GetLocation(),
 				RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - BlasterCharacter->GetHitTarget())
 				);
+			// 修复武器在瞄准时跳动的问题
+			RightHandRotation = FMath::RInterpTo(RightHandRotation, LookAtRotation, DeltaSeconds, 30.f);
 		}
 	}
 }

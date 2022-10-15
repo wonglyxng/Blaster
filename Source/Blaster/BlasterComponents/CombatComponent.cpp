@@ -4,7 +4,7 @@
 #include "CombatComponent.h"
 
 #include "Blaster/Character/BlasterCharacter.h"
-#include "Blaster/HUD/BlasterHUD.h"
+#include "Blaster/Interfaces/InteractWithCrosshairsInterface.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Blaster/Weapon/Weapon.h"
 #include "Camera/CameraComponent.h"
@@ -163,6 +163,18 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 			End,
 			ECollisionChannel::ECC_Visibility
 			);
+		
+		// 十字准星瞄准敌人的时候改变颜色
+		if (TraceHitResult.GetActor() && TraceHitResult.GetActor()->Implements<UInteractWithCrosshairsInterface>())
+		{
+			// 瞄准敌人时改变为红色
+			HUDPackage.CrosshairColor = FLinearColor::Red;
+		}
+		else
+		{
+			// 没有瞄准敌人时改变为白色
+			HUDPackage.CrosshairColor = FLinearColor::White;
+		}
 	}
 }
 
@@ -178,7 +190,6 @@ void UCombatComponent::SetHUDCrosshair(float DeltaTime)
 		HUD = HUD == nullptr ? Cast<ABlasterHUD>(Controller->GetHUD()) : HUD;
 		if (HUD)
 		{
-			FHUDPackage HUDPackage;
 			if (EquippedWeapon)
 			{
 				HUDPackage.CrosshairsCenter = EquippedWeapon->CrosshairsCenter;

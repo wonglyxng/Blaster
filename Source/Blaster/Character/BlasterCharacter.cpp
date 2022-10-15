@@ -47,6 +47,8 @@ ABlasterCharacter::ABlasterCharacter()
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	// 忽略网格体和摄像机碰撞，避免两个角色靠近时镜头缩放
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	// 开启网格体与子弹碰撞
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	
 	// 调整转身速度，防止移动一段距离以后才完成转身
 	GetCharacterMovement()->RotationRate = FRotator(0.f,0.f, 800.f);
