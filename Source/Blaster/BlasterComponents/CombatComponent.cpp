@@ -153,7 +153,16 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 	if (bScreenToWorld)
 	{
 		// 指定射线检测的射线起点和终点
-		const FVector Start = CrossHairWorldPosition;
+		FVector Start = CrossHairWorldPosition;
+
+		if (Character)
+		{
+			const float DistanceToCharacter = (Character->GetActorLocation() - Start).Size();
+			//UE_LOG(LogTemp, Warning, TEXT("DistanceToCharacter:%f"), DistanceToCharacter);
+			Start += CrossHairWorldDirection * (DistanceToCharacter + 100.f);
+			//DrawDebugSphere(GetWorld(), Start, 16.f, 12, FColor::Red, false);
+		}
+		
 		const FVector End = Start + CrossHairWorldDirection * TRACE_LENGTH;
 
 		// 射线检测，命中一个可见对象即返回碰撞信息

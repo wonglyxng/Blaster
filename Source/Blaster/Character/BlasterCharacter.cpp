@@ -128,6 +128,9 @@ void ABlasterCharacter::Tick(float DeltaTime)
 
 	// 每帧计算aim offset
 	AimOffset(DeltaTime);
+
+	// 相机太近时隐藏角色网格体，防止网格体遮挡
+	HideCameraIfCharacterClose();
 }
 
 void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -336,6 +339,32 @@ void ABlasterCharacter::TurningInSpace(float DeltaTime)
 		{
 			TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
 			StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		}
+	}
+}
+
+void ABlasterCharacter::HideCameraIfCharacterClose()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+	const float CameraDistance = (FollowCamera->GetComponentLocation() - GetActorLocation()).Size();
+	// UE_LOG(LogTemp, Warning, TEXT("CameraDistance: %f"), CameraDistance);
+	if (CameraDistance < CameraThreshold)
+	{
+		GetMesh()->SetVisibility(false);
+		if (CombatComponent && CombatComponent->EquippedWeapon && CombatComponent->EquippedWeapon->GetWeaponMesh())
+		{
+			CombatComponent->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = true;
+		}
+	}
+	else
+	{
+		GetMesh()->SetVisibility(true);
+		if (CombatComponent && CombatComponent->EquippedWeapon && CombatComponent->EquippedWeapon->GetWeaponMesh())
+		{
+			CombatComponent->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = false;
 		}
 	}
 }
