@@ -3,6 +3,8 @@
 
 #include "Projectile.h"
 
+#include "Blaster/Blaster.h"
+#include "Blaster/Character/BlasterCharacter.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -22,6 +24,7 @@ AProjectile::AProjectile()
 	CollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
+	CollisionBox->SetCollisionResponseToChannel(ECC_SkeletalMesh, ECollisionResponse::ECR_Block);
 
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
 	// 子弹旋转方向和速度保持一致
@@ -62,6 +65,13 @@ void AProjectile::Tick(float DeltaTime)
 
 void AProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+	// 调用被击中角色的播放被击中蒙太奇动画接口
+	ABlasterCharacter* Character = Cast<ABlasterCharacter>(OtherActor);
+	if (Character)
+	{
+		Character->MulticastHit();
+	}
+	
 	// 调用销毁函数，当子弹被销毁以后会调用我们重写的Destroyed()函数
 	//Destroy();
 

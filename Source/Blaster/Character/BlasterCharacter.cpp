@@ -3,6 +3,7 @@
 
 #include "BlasterCharacter.h"
 
+#include "Blaster/Blaster.h"
 #include "Blaster/BlasterComponents/CombatComponent.h"
 #include "Blaster/Weapon/Weapon.h"
 #include "Camera/CameraComponent.h"
@@ -45,6 +46,8 @@ ABlasterCharacter::ABlasterCharacter()
 
 	// 忽略胶囊体和摄像机碰撞，避免两个角色靠近时镜头缩放
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	// 设置网格体碰撞类型为自定义类型ECC_SkeletalMesh
+	GetMesh()->SetCollisionObjectType(ECC_SkeletalMesh);
 	// 忽略网格体和摄像机碰撞，避免两个角色靠近时镜头缩放
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	// 开启网格体与子弹碰撞
@@ -98,6 +101,31 @@ void ABlasterCharacter::PlayFireMontage(bool bAiming)
 		// 跳到指定段
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
+}
+
+void ABlasterCharacter::PlayHitReactMontage()
+{
+	if (CombatComponent == nullptr || CombatComponent->EquippedWeapon == nullptr)
+	{
+		return;
+	}
+
+	// 获取当前动画实例，通过动画实例播放蒙太奇
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		// 播放蒙太奇
+		AnimInstance->Montage_Play(HitReactMontage);
+		// 获取蒙太奇指定段名称
+		const FName SectionName(TEXT("FromFront"));
+		// 跳到指定段
+		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+}
+
+void ABlasterCharacter::MulticastHit_Implementation()
+{
+	PlayHitReactMontage();
 }
 
 void ABlasterCharacter::BeginPlay()
