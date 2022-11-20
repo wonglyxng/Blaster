@@ -83,6 +83,13 @@ void ABlasterCharacter::PostInitializeComponents()
 	
 }
 
+void ABlasterCharacter::OnRep_ReplicatedMovement()
+{
+	Super::OnRep_ReplicatedMovement();
+	SimProxiesTurn();
+	TimeSinceLastMovementReplication = .0f;
+}
+
 void ABlasterCharacter::PlayFireMontage(bool bAiming)
 {
 	if (CombatComponent == nullptr || CombatComponent->EquippedWeapon == nullptr)
@@ -154,9 +161,23 @@ void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// 每帧计算aim offset
-	AimOffset(DeltaTime);
-
+	// 只有ROLE_AutonomousProxy才每帧计算aim offset
+	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
+	{
+		// 每帧计算aim offset
+		AimOffset(DeltaTime);
+	}
+	else
+	{
+		// 其他情况，每0.25
+		TimeSinceLastMovementReplication += DeltaTime;
+		if (TimeSinceLastMovementReplication > 0.25f)
+		{
+			OnRep_ReplicatedMovement();
+		}
+		CalculateAO_Pitch();
+	}
+	
 	// 相机太近时隐藏角色网格体，防止网格体遮挡
 	HideCameraIfCharacterClose();
 }
@@ -269,6 +290,25 @@ void ABlasterCharacter::AimButtonReleased()
 	}
 }
 
+void ABlasterCharacter::CalculateAO_Pitch()
+{
+	AO_Pitch = GetBaseAimRotation().Pitch;
+	if(AO_Pitch > 90.f && !IsLocallyControlled())
+	{
+		// 将俯仰量[270,360)映射到[-90,0)
+		const FVector2D InRange(270.f, 360.f);
+		const FVector2D OutRange(-90.f, 0.f);
+		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
+
+float ABlasterCharacter::CalculateSpeed() const
+{
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	return  Velocity.Size();
+}
+
 void ABlasterCharacter::AimOffset(float DeltaTime)
 {
 	// 如果没有装备武器，则不用计算瞄准偏移量直接返回
@@ -277,14 +317,13 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 		return;
 	}
 
-	FVector Velocity = GetVelocity();
-	Velocity.Z = 0.f;
-	const float Speed = Velocity.Size();
+	const float Speed = CalculateSpeed();
 	const bool bIsInAir = GetCharacterMovement()->IsFalling();
 	
 	// 只有在不移动，不跳起的时候才计算瞄准偏移量
 	if (Speed == 0.f && !bIsInAir)
 	{
+		bRotateRootBone = true;
 		const FRotator CurrentAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		const FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
 		AO_Yaw = DeltaAimRotation.Yaw;
@@ -298,24 +337,60 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 		// 原地转动
 		TurningInSpace(DeltaTime);
 	}
+	
 	// 移动或跳起不计算瞄准偏移量
 	if (Speed > 0.f || bIsInAir)
 	{
+		bRotateRootBone = false;
 		StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
 		bUseControllerRotationYaw = true;
 		// 取消原地转动动画
 		TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
 	}
+	
 	// 计算瞄准俯仰量
-	AO_Pitch = GetBaseAimRotation().Pitch;
-	if(AO_Pitch > 90.f && !IsLocallyControlled())
+	CalculateAO_Pitch();
+}
+
+void ABlasterCharacter::SimProxiesTurn()
+{
+	if (CombatComponent == nullptr || CombatComponent->EquippedWeapon == nullptr)
 	{
-		// 将俯仰量[270,360)映射到[-90,0)
-		const FVector2D InRange(270.f, 360.f);
-		const FVector2D OutRange(-90.f, 0.f);
-		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+		return;
 	}
+	bRotateRootBone = false;
+	const float Speed = CalculateSpeed();
+	if (Speed > .0f)
+	{
+		TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
+		return;
+	}
+	
+	ProxyRotationLastFrame = ProxyRotation;
+	ProxyRotation = GetActorRotation();
+	ProxyYaw = UKismetMathLibrary::NormalizedDeltaRotator(ProxyRotation, ProxyRotationLastFrame).Yaw;
+
+	//UE_LOG(LogTemp, Warning, TEXT("ProxyYaw: %.2f"), ProxyYaw)
+
+	if (FMath::Abs(ProxyYaw) > TurnThreshold)
+	{
+		if (ProxyYaw > TurnThreshold)
+		{
+			TurningInSpaceState = ETurningInSpaceState::ETIS_Right;
+		}
+		else if (ProxyYaw < -TurnThreshold)
+		{
+			TurningInSpaceState = ETurningInSpaceState::ETIS_Left;
+		}
+		else
+		{
+			TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
+		}
+		return;
+	}
+	
+	TurningInSpaceState = ETurningInSpaceState::ETIS_NotTurning;
 }
 
 void ABlasterCharacter::Jump()
